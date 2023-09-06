@@ -45,7 +45,7 @@ public class YACipher {
 
         byte[] output = new byte[split.length];
         for(int i = 0; i < split.length; i++) {
-            output[i] = (byte) Integer.parseInt(split[i], 16);
+            output[i] = (byte) Long.parseLong(split[i], 16);
         }
 
         return output;

@@ -9,14 +9,16 @@
 
 package org.frknkrc44.minidb;
 
-public class YACipher {
-    private final byte[] mKey;
+import java.security.spec.InvalidKeySpecException;
+
+final class YACipher extends BaseCipher {
     private final char mSplitKey = 0x1B;
 
     public YACipher(byte[] key) {
-        mKey = key;
+        super(key);
     }
 
+    @Override
     public byte[] encode(byte[] input) {
         return encode(input, false);
     }
@@ -35,6 +37,7 @@ public class YACipher {
         return input;
     }
 
+    @Override
     public byte[] decode(byte[] input) {
         return encode(fromHex(input), true);
     }
@@ -61,13 +64,5 @@ public class YACipher {
 
         stringBuilder.delete(stringBuilder.length() - 1, stringBuilder.length());
         return stringBuilder.toString().getBytes();
-    }
-
-    public String encodeStr(String input) {
-        return new String(encode(input.getBytes()));
-    }
-
-    public String decodeStr(String input) {
-        return new String(decode(input.getBytes()));
     }
 }

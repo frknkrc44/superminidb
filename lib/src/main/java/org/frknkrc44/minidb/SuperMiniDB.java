@@ -43,33 +43,125 @@ public class SuperMiniDB {
     private final HashMap<String, String> hm1 = new HashMap<>();
     private boolean ready = false;
     private File folder;
-    private YACipher cipher = null;
+    private BaseCipher cipher = null;
+    private LogProvider logProvider = null;
 
+    /**
+     * Initialize the DB with YACipher and default log provider
+     * @param dbName Database name
+     * @param path Database path
+     * @param notRead Don't read the database content, just initialize it.
+     *                You will need to read the key contents manually.
+     */
     public SuperMiniDB(String dbName, File path, boolean notRead) {
-        init(dbName, path);
+        this(dbName, path, notRead, false);
+    }
+
+    /**
+     * Initialize the DB with YACipher
+     * @param dbName Database name
+     * @param path Database path
+     * @param notRead Don't read the database content, just initialize it.
+     *                You will need to read the key contents manually.
+     * @param provider Log provider
+     */
+    public SuperMiniDB(String dbName, File path, boolean notRead, LogProvider provider) {
+        this(dbName, path, notRead, false, provider);
+    }
+
+    /**
+     * Initialize the DB with AESCipher/YACipher and default log provider
+     * @param dbName Database name
+     * @param path Database path
+     * @param notRead Don't read the database content, just initialize it.
+     *                You will need to read the key contents manually.
+     * @param useAes Use AESCipher instead of YACipher (more secure but slow)
+     */
+    public SuperMiniDB(String dbName, File path, boolean notRead, boolean useAes) {
+        this(dbName, path, notRead, useAes, null);
+    }
+
+    /**
+     * Initialize the DB with AESCipher/YACipher
+     * @param dbName Database name
+     * @param path Database path
+     * @param notRead Don't read the database content, just initialize it.
+     *                You will need to read the key contents manually.
+     * @param useAes Use AESCipher instead of YACipher (more secure but slow)
+     * @param provider Log provider
+     */
+    public SuperMiniDB(String dbName, File path, boolean notRead, boolean useAes, LogProvider provider) {
+        init(dbName, path, useAes, provider);
         if (!notRead) {
             readAll();
         }
     }
 
-    public SuperMiniDB(String dbName, File path) {
-        this(dbName, path, false);
-    }
-
-    public SuperMiniDB(String dbName, File path, String key) {
-        init(dbName, path);
-        readKey(key);
-    }
-
+    /**
+     * Initialize the DB with YACipher async and default log provider
+     * @param dbName Database name
+     * @param path Database path
+     * @param onDBLoadFinished Callback function which executed after init
+     */
     public SuperMiniDB(String dbName, File path, Runnable onDBLoadFinished) {
-        init(dbName, path);
+        this(dbName, path, onDBLoadFinished, null);
+    }
+
+    /**
+     * Initialize the DB with YACipher async
+     * @param dbName Database name
+     * @param path Database path
+     * @param onDBLoadFinished Callback function which executed after init
+     * @param provider Log provider
+     */
+    public SuperMiniDB(String dbName, File path, Runnable onDBLoadFinished, LogProvider provider) {
+        this(dbName, path, onDBLoadFinished, false, provider);
+    }
+
+    /**
+     * İnitialize the DB with AESCipher/YACipher async and default log provider
+     * @param dbName Database name
+     * @param path Database path
+     * @param onDBLoadFinished Callback function which executed after init
+     * @param useAes Use AESCipher instead of YACipher (more secure but slow)
+     */
+    public SuperMiniDB(String dbName, File path, Runnable onDBLoadFinished, boolean useAes) {
+        this(dbName, path, onDBLoadFinished, useAes, null);
+    }
+
+    /**
+     * İnitialize the DB with AESCipher/YACipher async
+     * @param dbName Database name
+     * @param path Database path
+     * @param onDBLoadFinished Callback function which executed after init
+     * @param useAes Use AESCipher instead of YACipher (more secure but slow)
+     * @param provider Log provider
+     */
+    public SuperMiniDB(String dbName, File path, Runnable onDBLoadFinished, boolean useAes, LogProvider provider) {
+        init(dbName, path, useAes, provider);
         readAllAsync(onDBLoadFinished);
     }
 
-    private void init(String dbName, File path) {
-        try {
-            cipher = new YACipher(dbName.getBytes());
-        } catch(Throwable ignored) {}
+    private void init(String dbName, File path, boolean useAes, LogProvider provider) {
+        logProvider = provider == null ? new DefaultLogProvider() : provider;
+
+        if (useAes) {
+            try {
+                logProvider.onLog("Trying to init AESCipher...");
+                cipher = new AESCipher(dbName.getBytes());
+            } catch (Throwable ignored) {
+                logProvider.onLog("!!! AESCipher init failed, falling back to YACipher !!!");
+            }
+        }
+
+        if (cipher == null) {
+            try {
+                logProvider.onLog("Trying to init YACipher...");
+                cipher = new YACipher(dbName.getBytes());
+            } catch (Throwable ignored) {
+                logProvider.onLog("!!! YACipher init failed, storing files insecurely !!!");
+            }
+        }
 
         folder = new File(path + File.separator + "smdb" + File.separator + dbName);
         if (!folder.exists()) folder.mkdirs();
@@ -424,8 +516,8 @@ public class SuperMiniDB {
     public Map<String, String> query(String rule) {
         if (rule == null || !rule.contains("="))
             throw new RuntimeException("rule must be non-null and must contain = as delimiter");
-        String[] ruleArr = rule.split("=");
-        if (ruleArr.length < 2 || ruleArr[0].trim().length() < 1 || ruleArr[1].trim().length() < 1) {
+        String[] ruleArr = rule.split("=", 2);
+        if (ruleArr.length != 2 || ruleArr[0].trim().isEmpty() || ruleArr[1].trim().isEmpty()) {
             throw new RuntimeException("invalid rule");
         }
         List<String> keys = new ArrayList<>(hm1.keySet());
@@ -463,5 +555,12 @@ public class SuperMiniDB {
                 throw new RuntimeException("invalid rule");
         }
         return out;
+    }
+
+    private static class DefaultLogProvider implements LogProvider {
+        @Override
+        public void onLog(String text) {
+            System.out.println(text);
+        }
     }
 }

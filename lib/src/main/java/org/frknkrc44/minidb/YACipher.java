@@ -62,7 +62,10 @@ final class YACipher extends BaseCipher {
             stringBuilder.append(mSplitKey);
         }
 
-        stringBuilder.delete(stringBuilder.length() - 1, stringBuilder.length());
+        if (stringBuilder.length() > 0) {
+            stringBuilder.delete(stringBuilder.length() - 1, stringBuilder.length());
+        }
+
         return stringBuilder.toString().getBytes();
     }
 }
